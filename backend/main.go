@@ -242,7 +242,9 @@ func getAssignments() []Assignment {
 
 	return assignments
 }
-
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
 func main() {
 
 	c := cache.New(5*time.Minute, 10*time.Minute)
@@ -250,12 +252,20 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/assignments", func(rw http.ResponseWriter, _ *http.Request) {
+		enableCors(&rw)
 		assignments, found := c.Get("assignments")
 		if !found {
 			assignments = getAssignments()
 			c.Set("assignments", assignments, cache.DefaultExpiration)
 		}
-		json.NewEncoder(rw).Encode(assignments)
+		rw.Header().Set("Content-Type", "application/json")
+		js, err := json.Marshal(assignments)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rw.Write(js)
+		// json.NewEncoder(rw).Encode(assignments)
 
 	})
 	log.Println("Listening...")
